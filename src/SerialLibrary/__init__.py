@@ -531,7 +531,7 @@ class SerialLibrary:
             self._port(port_locator).read_until(terminator=terminator, size=size),
             encoding)
 
-    def read_until_pattern(self, pattern_regexp, size=None, encoding=None, port_locator=None):
+    def read_until_pattern(self, pattern_regexp, terminator=LF, size=None, encoding=None, port_locator=None):
         """
         Read until a pattern regex definition will be found, size exceeded or timeout.
 
@@ -542,11 +542,10 @@ class SerialLibrary:
         """
         if size is not None:
             size = float(size)
-        terminator = bytes(0)
         if terminator != LF and not isinstance(terminator, (bytes, bytearray)):
             terminator = self._encode(terminator)
         bytes_read = 0
-        regexp = re.compile(pattern_regexp, re.I)
+        regexp = re.compile(pattern_regexp, re.MULTILINE)
         old_timeout = self._port(port_locator).timeout
         start_time = time.time()
         self._port(port_locator).timeout = 0.1
@@ -554,7 +553,7 @@ class SerialLibrary:
         while True:
             if (size is not None):
                 size = size - bytes_read
-                if not size:
+                if size < 0.01:
                     break
             new_data = self._decode(
                 self._port(port_locator).read_until(terminator=terminator, size=size),
@@ -563,7 +562,9 @@ class SerialLibrary:
                 start_time = time.time()
             buffer += new_data
             bytes_read = len(new_data)
-            if regexp.match(buffer) or ((time.time() - start_time()) > old_timeout):
+
+            regexp_search = regexp.search(buffer)
+            if regexp_search or (time.time() - start_time > old_timeout):
                 break
         self._port(port_locator).timeout = old_timeout
         return buffer

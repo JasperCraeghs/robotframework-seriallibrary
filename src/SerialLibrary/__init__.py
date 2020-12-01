@@ -1,6 +1,7 @@
 # coding: utf-8
 from __future__ import unicode_literals
 import codecs
+import time
 import re
 from collections import OrderedDict
 from os import SEEK_CUR
@@ -529,6 +530,43 @@ class SerialLibrary:
         return self._decode(
             self._port(port_locator).read_until(terminator=terminator, size=size),
             encoding)
+
+    def read_until_pattern(self, pattern_regexp, size=None, encoding=None, port_locator=None):
+        """
+        Read until a pattern regex definition will be found, size exceeded or timeout.
+
+        If `encoding` is not given, default encoding is used.
+        Note that encoding affects terminator too, so if you want to use
+        character 'X' as terminator and encoding=hexlify (default), you should
+        call this keyword as Read Until terminator=58.
+        """
+        if size is not None:
+            size = float(size)
+        terminator = bytes(0)
+        if terminator != LF and not isinstance(terminator, (bytes, bytearray)):
+            terminator = self._encode(terminator)
+        bytes_read = 0
+        regexp = re.compile(pattern_regexp, re.I)
+        old_timeout = self._port(port_locator).timeout
+        start_time = time.time()
+        self._port(port_locator).timeout = 0.1
+        buffer = ""
+        while True:
+            if (size is not None):
+                size = size - bytes_read
+                if not size:
+                    break
+            new_data = self._decode(
+                self._port(port_locator).read_until(terminator=terminator, size=size),
+                encoding)
+            if (new_data):
+                start_time = time.time()
+            buffer += new_data
+            bytes_read = len(new_data)
+            if regexp.match(buffer) or ((time.time() - start_time()) > old_timeout):
+                break
+        self._port(port_locator).timeout = old_timeout
+        return buffer
 
     def port_should_have_unread_bytes(self, port_locator=None):
         """

@@ -533,7 +533,7 @@ class SerialLibrary:
 
     def read_until_pattern(self, pattern_regexp, terminator=LF, size=None, encoding=None, port_locator=None):
         """
-        Read until a pattern regex definition will be found, size exceeded or timeout.
+        Read until a pattern regex definition is found, size exceeded or timeout.
 
         If `encoding` is not given, default encoding is used.
         Note that encoding affects terminator too, so if you want to use
@@ -544,29 +544,31 @@ class SerialLibrary:
             size = float(size)
         if terminator != LF and not isinstance(terminator, (bytes, bytearray)):
             terminator = self._encode(terminator)
-        bytes_read = 0
+        port = self._port(port_locator)
         regexp = re.compile(pattern_regexp, re.MULTILINE)
-        old_timeout = self._port(port_locator).timeout
+        old_timeout = port.timeout
+        port.timeout = 0.1
         start_time = time.time()
-        self._port(port_locator).timeout = 0.1
         buffer = ""
+        bytes_read = 0
         while True:
-            if (size is not None):
-                size = size - bytes_read
+            if size is not None:
+                size -= bytes_read
                 if size < 0.01:
                     break
             new_data = self._decode(
-                self._port(port_locator).read_until(terminator=terminator, size=size),
-                encoding)
-            if (new_data):
-                start_time = time.time()
+                port.read_until(terminator=terminator, size=size),
+                encoding
+            )
             buffer += new_data
             bytes_read = len(new_data)
+            if bytes_read:
+                start_time = time.time()
 
-            regexp_search = regexp.search(buffer)
-            if regexp_search or (time.time() - start_time > old_timeout):
+            regexp_found = bool(regexp.search(buffer))
+            if regexp_found or (time.time() - start_time > old_timeout):
                 break
-        self._port(port_locator).timeout = old_timeout
+        port.timeout = old_timeout
         return buffer
 
     def port_should_have_unread_bytes(self, port_locator=None):

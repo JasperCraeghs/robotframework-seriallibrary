@@ -531,9 +531,9 @@ class SerialLibrary:
             self._port(port_locator).read_until(terminator=terminator, size=size),
             encoding)
 
-    def read_until_pattern(self, pattern_regexp, terminator=LF, size=None, encoding=None, port_locator=None):
+    def read_until_pattern(self, pattern, terminator=LF, size=None, encoding=None, port_locator=None):
         """
-        Read until a pattern regex definition is found, size exceeded or timeout.
+        Read until a (multiline) pattern is found, size exceeded or timeout.
 
         If `encoding` is not given, default encoding is used.
         Note that encoding affects terminator too, so if you want to use
@@ -545,7 +545,7 @@ class SerialLibrary:
         if terminator != LF and not isinstance(terminator, (bytes, bytearray)):
             terminator = self._encode(terminator)
         port = self._port(port_locator)
-        regexp = re.compile(pattern_regexp, re.MULTILINE)
+        regexp = re.compile(pattern, re.MULTILINE)
         old_timeout = port.timeout
         port.timeout = 0.1
         start_time = time.time()
